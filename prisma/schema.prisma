@@ -1,0 +1,193 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  RECEPCAO
+  PROFISSIONAL
+  FINANCEIRO
+}
+
+enum AppointmentStatus {
+  AGENDADO
+  CONFIRMADO
+  REALIZADO
+  FALTA
+  CANCELADO
+}
+
+enum PaymentMethod {
+  PIX
+  DINHEIRO
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  TRANSFERENCIA
+  BOLETO
+  CONVENIO
+}
+
+enum ExpenseCategory {
+  ALUGUEL
+  SALARIOS
+  REPASSE
+  MATERIAIS
+  IMPOSTOS
+  SERVICOS
+  MANUTENCAO
+  OUTROS
+}
+
+enum RepasseTipo {
+  PERCENTUAL
+  FIXO_POR_SESSAO
+}
+
+model User {
+  id             String        @id @default(cuid())
+  name           String
+  email          String        @unique
+  passwordHash   String
+  role           Role
+  active         Boolean       @default(true)
+  professional   Professional? @relation(fields: [professionalId], references: [id])
+  professionalId String?       @unique
+  payments       Payment[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Specialty {
+  id                String         @id @default(cuid())
+  name              String         @unique
+  // Cor usada na agenda (hex)
+  color             String
+  // Duração padrão da sessão, em minutos
+  defaultMinutes    Int            @default(50)
+  // Preço padrão da sessão particular, em centavos
+  defaultPriceCents Int            @default(0)
+  active            Boolean        @default(true)
+  professionals     Professional[]
+  appointments      Appointment[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model Professional {
+  id           String        @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  // Registro no conselho (CRP, CRFa, CREFITO, CRN, CRM...)
+  registration String?
+  specialty    Specialty     @relation(fields: [specialtyId], references: [id])
+  specialtyId  String
+  repasseTipo  RepasseTipo   @default(PERCENTUAL)
+  // PERCENTUAL: 0 a 100. FIXO_POR_SESSAO: valor em centavos.
+  repasseValor Int           @default(0)
+  active       Boolean       @default(true)
+  user         User?
+  appointments Appointment[]
+  expenses     Expense[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Patient {
+  id            String        @id @default(cuid())
+  name          String
+  birthDate     DateTime?     @db.Date
+  cpf           String?       @unique
+  phone         String?
+  email         String?
+  guardianName  String?
+  guardianPhone String?
+  notes         String?
+  active        Boolean       @default(true)
+  appointments  Appointment[]
+  payments      Payment[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Room {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  description  String?
+  active       Boolean       @default(true)
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  patient        Patient           @relation(fields: [patientId], references: [id])
+  patientId      String
+  professional   Professional      @relation(fields: [professionalId], references: [id])
+  professionalId String
+  specialty      Specialty         @relation(fields: [specialtyId], references: [id])
+  specialtyId    String
+  room           Room              @relation(fields: [roomId], references: [id])
+  roomId         String
+  startsAt       DateTime
+  endsAt         DateTime
+  status         AppointmentStatus @default(AGENDADO)
+  // Valor da sessão, em centavos
+  priceCents     Int               @default(0)
+  // Sessões criadas juntas por uma recorrência compartilham o mesmo seriesId
+  seriesId       String?
+  notes          String?
+  // Recebimento que quitou esta sessão (nulo = em aberto)
+  payment        Payment?          @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  paymentId      String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([startsAt])
+  @@index([roomId, startsAt])
+  @@index([professionalId, startsAt])
+  @@index([patientId, startsAt])
+  @@index([seriesId])
+  @@index([paymentId])
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  patientId    String
+  amountCents  Int
+  method       PaymentMethod
+  paidAt       DateTime      @db.Date
+  notes        String?
+  appointments Appointment[]
+  createdBy    User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdAt    DateTime      @default(now())
+
+  @@index([paidAt])
+}
+
+model Expense {
+  id             String          @id @default(cuid())
+  description    String
+  category       ExpenseCategory
+  amountCents    Int
+  dueDate        DateTime        @db.Date
+  paidAt         DateTime?       @db.Date
+  notes          String?
+  // Repasse: profissional e mês de referência (YYYY-MM)
+  professional   Professional?   @relation(fields: [professionalId], references: [id])
+  professionalId String?
+  period         String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([professionalId, period])
+  @@index([dueDate])
+}
