@@ -118,6 +118,8 @@ export async function setAppointmentStatus(formData: FormData) {
 
   const appointment = await db.appointment.findUnique({ where: { id } });
   if (!appointment) return;
+  // Presença e falta só fazem sentido depois que a sessão começou.
+  if ((status === "REALIZADO" || status === "FALTA") && appointment.startsAt > new Date()) return;
 
   if (!hasRole(session.role, CAN_EDIT.agenda)) {
     // Profissional só registra presença ou falta nas próprias sessões.

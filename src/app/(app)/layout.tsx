@@ -9,6 +9,7 @@ const NAV: NavItem[] = [
   { href: "/", label: "Início", icon: icons.inicio },
   { href: "/agenda", label: "Agenda", icon: icons.agenda },
   { href: "/salas/ocupacao", label: "Ocupação das salas", icon: icons.ocupacao },
+  { href: "/financeiro", label: "Financeiro", icon: icons.financeiro },
   { href: "/pacientes", label: "Pacientes", icon: icons.pacientes },
   { href: "/profissionais", label: "Profissionais", icon: icons.profissionais },
   { href: "/especialidades", label: "Especialidades", icon: icons.especialidades },

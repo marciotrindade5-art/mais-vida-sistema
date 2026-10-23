@@ -20,6 +20,9 @@ export const icons = {
   ocupacao: (
     <svg {...base}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
   ),
+  financeiro: (
+    <svg {...base}><rect x="2" y="6" width="20" height="13" rx="2" /><circle cx="12" cy="12.5" r="2.5" /><path d="M6 10v.01M18 15v.01" /></svg>
+  ),
   pacientes: (
     <svg {...base}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.6 2.6 3 5.2" /></svg>
   ),

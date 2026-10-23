@@ -22,6 +22,27 @@ enum AppointmentStatus {
   CANCELADO
 }
 
+enum PaymentMethod {
+  PIX
+  DINHEIRO
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  TRANSFERENCIA
+  BOLETO
+  CONVENIO
+}
+
+enum ExpenseCategory {
+  ALUGUEL
+  SALARIOS
+  REPASSE
+  MATERIAIS
+  IMPOSTOS
+  SERVICOS
+  MANUTENCAO
+  OUTROS
+}
+
 enum RepasseTipo {
   PERCENTUAL
   FIXO_POR_SESSAO
@@ -36,6 +57,7 @@ model User {
   active         Boolean       @default(true)
   professional   Professional? @relation(fields: [professionalId], references: [id])
   professionalId String?       @unique
+  payments       Payment[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 }
@@ -71,6 +93,7 @@ model Professional {
   active       Boolean       @default(true)
   user         User?
   appointments Appointment[]
+  expenses     Expense[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
@@ -87,6 +110,7 @@ model Patient {
   notes         String?
   active        Boolean       @default(true)
   appointments  Appointment[]
+  payments      Payment[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 }
@@ -119,6 +143,9 @@ model Appointment {
   // Sessões criadas juntas por uma recorrência compartilham o mesmo seriesId
   seriesId       String?
   notes          String?
+  // Recebimento que quitou esta sessão (nulo = em aberto)
+  payment        Payment?          @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  paymentId      String?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -127,4 +154,40 @@ model Appointment {
   @@index([professionalId, startsAt])
   @@index([patientId, startsAt])
   @@index([seriesId])
+  @@index([paymentId])
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  patientId    String
+  amountCents  Int
+  method       PaymentMethod
+  paidAt       DateTime      @db.Date
+  notes        String?
+  appointments Appointment[]
+  createdBy    User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdAt    DateTime      @default(now())
+
+  @@index([paidAt])
+}
+
+model Expense {
+  id             String          @id @default(cuid())
+  description    String
+  category       ExpenseCategory
+  amountCents    Int
+  dueDate        DateTime        @db.Date
+  paidAt         DateTime?       @db.Date
+  notes          String?
+  // Repasse: profissional e mês de referência (YYYY-MM)
+  professional   Professional?   @relation(fields: [professionalId], references: [id])
+  professionalId String?
+  period         String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([professionalId, period])
+  @@index([dueDate])
 }

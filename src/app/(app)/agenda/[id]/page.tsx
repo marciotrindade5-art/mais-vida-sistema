@@ -47,6 +47,7 @@ export default async function AgendamentoPage({ params }: { params: Promise<{ id
     : 0;
   const options = canEdit && open ? await appointmentOptions(a) : null;
   const time = minutesOfDay(a.startsAt);
+  const started = a.startsAt <= new Date();
 
   return (
     <>
@@ -71,11 +72,15 @@ export default async function AgendamentoPage({ params }: { params: Promise<{ id
           )}
           {a.notes && <div className="sm:col-span-2"><dt className="text-sm text-suave">Observações</dt><dd className="mt-1 whitespace-pre-line">{a.notes}</dd></div>}
         </dl>
-        {open && (canEdit || isOwn) && (
+        {open && (canEdit || (isOwn && started)) && (
           <div className="flex flex-wrap gap-3 border-t border-linha pt-5">
             {canEdit && a.status === "AGENDADO" && <StatusButton id={a.id} status="CONFIRMADO" label="Confirmar presença" variant="primary" />}
-            <StatusButton id={a.id} status="REALIZADO" label="Marcar como realizada" variant={a.status === "CONFIRMADO" ? "primary" : "secondary"} />
-            <StatusButton id={a.id} status="FALTA" label="Registrar falta" />
+            {started && (
+              <>
+                <StatusButton id={a.id} status="REALIZADO" label="Marcar como realizada" variant={a.status === "CONFIRMADO" ? "primary" : "secondary"} />
+                <StatusButton id={a.id} status="FALTA" label="Registrar falta" />
+              </>
+            )}
             {canEdit && <StatusButton id={a.id} status="CANCELADO" label="Cancelar sessão" variant="ghost" />}
             {canEdit && seriesCount > 1 && <StatusButton id={a.id} status="CANCELADO" scope="following" label={`Cancelar esta e as próximas (${seriesCount})`} variant="ghost" />}
           </div>
