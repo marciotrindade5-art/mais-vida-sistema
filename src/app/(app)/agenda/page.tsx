@@ -3,7 +3,6 @@ import type { AppointmentStatus, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { currentProfessionalId, requireRole } from "@/lib/auth";
 import { CAN_EDIT, NAV_ACCESS, hasRole } from "@/lib/roles";
-import { STATUS_LABELS } from "@/lib/agenda";
 import { AGENDA_END_HOUR, AGENDA_START_HOUR } from "@/lib/clinic";
 import { addDays, dayRange, formatDayLong, formatTime, isDayKey, minutesOfDay, todayKey } from "@/lib/time";
 import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
@@ -16,6 +15,13 @@ function rowOf(date: Date) {
   const m = minutesOfDay(date) - AGENDA_START_HOUR * 60;
   return Math.min(Math.max(Math.round(m / ROW_MINUTES), 0), ROWS) + 2; // linha 1 é o cabeçalho
 }
+
+// Situação ao lado do nome; "confirmado" é o normal e não leva marca.
+const STATUS_SUFFIX: Partial<Record<AppointmentStatus, string>> = {
+  AGENDADO: "a confirmar",
+  REALIZADO: "realizada",
+  FALTA: "falta",
+};
 
 const STATUS_STYLE: Record<AppointmentStatus, string> = {
   AGENDADO: "border-[1.5px] border-dashed border-alerta",
@@ -179,17 +185,16 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                   <Link
                     key={a.id}
                     href={`/agenda/${a.id}`}
-                    className={`relative z-10 my-0.5 flex flex-col gap-0.5 overflow-hidden rounded-lg px-2.5 py-1.5 text-tinta hover:outline-2 hover:outline-verde ${STATUS_STYLE[a.status]}`}
+                    className={`relative z-10 my-0.5 flex flex-col gap-0.5 overflow-hidden rounded-lg px-2.5 py-1 text-tinta hover:outline-2 hover:outline-verde ${STATUS_STYLE[a.status]}`}
                     style={{ gridColumn: col, gridRow: `${rowStart} / ${rowEnd}`, background: `color-mix(in srgb, ${a.specialty.color} 16%, white)` }}
                   >
-                    <span className="nome truncate text-sm font-semibold">
-                      {a.patient.name}
-                      {a.status === "AGENDADO" && " · a confirmar"}
+                    <span className="truncate text-sm">
+                      <span className="nome font-semibold">{a.patient.name}</span>
+                      {STATUS_SUFFIX[a.status] && <span className="font-medium"> · {STATUS_SUFFIX[a.status]}</span>}
                     </span>
                     <span className="truncate text-[13px]" style={{ color: `color-mix(in srgb, ${a.specialty.color} 70%, black)` }}>
                       {formatTime(a.startsAt)}–{formatTime(a.endsAt)} · {a.professional.name}
                     </span>
-                    {a.status !== "AGENDADO" && a.status !== "CONFIRMADO" && <span className="text-[13px] font-medium">{STATUS_LABELS[a.status]}</span>}
                   </Link>
                 );
               })}
