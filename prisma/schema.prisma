@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  RECEPCAO
+  PROFISSIONAL
+  FINANCEIRO
+}
+
+enum RepasseTipo {
+  PERCENTUAL
+  FIXO_POR_SESSAO
+}
+
+model User {
+  id             String        @id @default(cuid())
+  name           String
+  email          String        @unique
+  passwordHash   String
+  role           Role
+  active         Boolean       @default(true)
+  professional   Professional? @relation(fields: [professionalId], references: [id])
+  professionalId String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Specialty {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  // Cor usada na agenda (hex)
+  color         String
+  // Duração padrão da sessão, em minutos
+  defaultMinutes Int           @default(50)
+  // Preço padrão da sessão particular, em centavos
+  defaultPriceCents Int        @default(0)
+  active        Boolean        @default(true)
+  professionals Professional[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Professional {
+  id           String      @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  // Registro no conselho (CRP, CRFa, CREFITO, CRN, CRM...)
+  registration String?
+  specialty    Specialty   @relation(fields: [specialtyId], references: [id])
+  specialtyId  String
+  repasseTipo  RepasseTipo @default(PERCENTUAL)
+  // PERCENTUAL: 0 a 100. FIXO_POR_SESSAO: valor em centavos.
+  repasseValor Int         @default(0)
+  active       Boolean     @default(true)
+  user         User?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Patient {
+  id            String    @id @default(cuid())
+  name          String
+  birthDate     DateTime? @db.Date
+  cpf           String?   @unique
+  phone         String?
+  email         String?
+  guardianName  String?
+  guardianPhone String?
+  notes         String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Room {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
