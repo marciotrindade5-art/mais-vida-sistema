@@ -34,9 +34,10 @@ npm run dev                       # http://localhost:3000
 
 ## Implantação
 
-1. Crie um banco PostgreSQL gerenciado (Neon ou Supabase).
-2. Importe o repositório na Vercel e configure `DATABASE_URL` e `SESSION_SECRET`.
-3. Rode `npm run db:migrate` e `npm run db:seed` apontando para o banco de produção.
+1. Importe o repositório na Vercel.
+2. Em **Storage**, crie um banco Postgres da Neon e conecte ao projeto (isso preenche `DATABASE_URL`).
+3. Em **Settings → Environment Variables**, defina `SESSION_SECRET` (texto aleatório longo), `ADMIN_EMAIL` e `ADMIN_PASSWORD`.
+4. Faça o deploy. O script `vercel-build` aplica as migrações, cria as especialidades e o primeiro administrador (só se ainda não existir) e depois gera o build.
 
 ## Horário da clínica
 
