@@ -14,6 +14,14 @@ enum Role {
   FINANCEIRO
 }
 
+enum AppointmentStatus {
+  AGENDADO
+  CONFIRMADO
+  REALIZADO
+  FALTA
+  CANCELADO
+}
+
 enum RepasseTipo {
   PERCENTUAL
   FIXO_POR_SESSAO
@@ -33,58 +41,90 @@ model User {
 }
 
 model Specialty {
-  id            String         @id @default(cuid())
-  name          String         @unique
+  id                String         @id @default(cuid())
+  name              String         @unique
   // Cor usada na agenda (hex)
-  color         String
+  color             String
   // Duração padrão da sessão, em minutos
-  defaultMinutes Int           @default(50)
+  defaultMinutes    Int            @default(50)
   // Preço padrão da sessão particular, em centavos
-  defaultPriceCents Int        @default(0)
-  active        Boolean        @default(true)
-  professionals Professional[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  defaultPriceCents Int            @default(0)
+  active            Boolean        @default(true)
+  professionals     Professional[]
+  appointments      Appointment[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 }
 
 model Professional {
-  id           String      @id @default(cuid())
+  id           String        @id @default(cuid())
   name         String
   email        String?
   phone        String?
   // Registro no conselho (CRP, CRFa, CREFITO, CRN, CRM...)
   registration String?
-  specialty    Specialty   @relation(fields: [specialtyId], references: [id])
+  specialty    Specialty     @relation(fields: [specialtyId], references: [id])
   specialtyId  String
-  repasseTipo  RepasseTipo @default(PERCENTUAL)
+  repasseTipo  RepasseTipo   @default(PERCENTUAL)
   // PERCENTUAL: 0 a 100. FIXO_POR_SESSAO: valor em centavos.
-  repasseValor Int         @default(0)
-  active       Boolean     @default(true)
+  repasseValor Int           @default(0)
+  active       Boolean       @default(true)
   user         User?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model Patient {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   name          String
-  birthDate     DateTime? @db.Date
-  cpf           String?   @unique
+  birthDate     DateTime?     @db.Date
+  cpf           String?       @unique
   phone         String?
   email         String?
   guardianName  String?
   guardianPhone String?
   notes         String?
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  active        Boolean       @default(true)
+  appointments  Appointment[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
 
 model Room {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String        @id @default(cuid())
+  name         String        @unique
+  description  String?
+  active       Boolean       @default(true)
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  patient        Patient           @relation(fields: [patientId], references: [id])
+  patientId      String
+  professional   Professional      @relation(fields: [professionalId], references: [id])
+  professionalId String
+  specialty      Specialty         @relation(fields: [specialtyId], references: [id])
+  specialtyId    String
+  room           Room              @relation(fields: [roomId], references: [id])
+  roomId         String
+  startsAt       DateTime
+  endsAt         DateTime
+  status         AppointmentStatus @default(AGENDADO)
+  // Valor da sessão, em centavos
+  priceCents     Int               @default(0)
+  // Sessões criadas juntas por uma recorrência compartilham o mesmo seriesId
+  seriesId       String?
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([startsAt])
+  @@index([roomId, startsAt])
+  @@index([professionalId, startsAt])
+  @@index([patientId, startsAt])
+  @@index([seriesId])
 }

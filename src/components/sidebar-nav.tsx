@@ -8,10 +8,14 @@ export type NavItem = { href: string; label: string; icon: ReactNode };
 
 export function SidebarNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
+  // O item ativo é o de caminho mais longo que casa com a URL (/salas/ocupacao vence /salas).
+  const activeHref = items
+    .filter((i) => (i.href === "/" ? pathname === "/" : pathname === i.href || pathname.startsWith(i.href + "/")))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
   return (
     <ul className="flex flex-col gap-1">
       {items.map((item) => {
-        const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+        const active = item.href === activeHref;
         return (
           <li key={item.href}>
             <Link

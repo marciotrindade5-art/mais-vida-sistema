@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireSession } from "@/lib/auth";
+import { currentProfessionalId, requireSession } from "@/lib/auth";
+import { dayRange, todayKey } from "@/lib/time";
 import { NAV_ACCESS } from "@/lib/roles";
 import { PageHeader } from "@/components/ui";
 
 export default async function InicioPage() {
   const session = await requireSession();
-  const [pacientes, profissionais, salas, especialidades] = await Promise.all([
+  const today = dayRange(todayKey());
+  const ownProfessionalId = session.role === "PROFISSIONAL" ? ((await currentProfessionalId(session.userId)) ?? "nenhum") : undefined;
+  const [sessoesHoje, pacientes, profissionais, salas, especialidades] = await Promise.all([
+    db.appointment.count({
+      where: { startsAt: { gte: today.start, lt: today.end }, status: { not: "CANCELADO" }, professionalId: ownProfessionalId },
+    }),
     db.patient.count({ where: { active: true } }),
     db.professional.count({ where: { active: true } }),
     db.room.count({ where: { active: true } }),
@@ -14,6 +20,7 @@ export default async function InicioPage() {
   ]);
 
   const cards = [
+    { href: "/agenda", label: session.role === "PROFISSIONAL" ? "Suas sessões hoje" : "Sessões hoje", value: sessoesHoje },
     { href: "/pacientes", label: "Pacientes ativos", value: pacientes },
     { href: "/profissionais", label: "Profissionais", value: profissionais },
     { href: "/salas", label: "Salas", value: salas },
@@ -33,7 +40,6 @@ export default async function InicioPage() {
           </Link>
         ))}
       </section>
-      <p className="text-sm text-suave">A agenda, a ocupação das salas e o financeiro chegam nas próximas etapas.</p>
     </>
   );
 }

@@ -14,15 +14,18 @@ export const CAN_EDIT = {
   especialidades: ["ADMIN"],
   salas: ["ADMIN"],
   usuarios: ["ADMIN"],
+  agenda: ["ADMIN", "RECEPCAO"],
 } satisfies Record<string, Role[]>;
 
 /** Quem vê cada item do menu. */
 export const NAV_ACCESS: Record<string, Role[]> = {
   "/": ["ADMIN", "RECEPCAO", "PROFISSIONAL", "FINANCEIRO"],
+  "/agenda": ["ADMIN", "RECEPCAO", "PROFISSIONAL", "FINANCEIRO"],
   "/pacientes": ["ADMIN", "RECEPCAO", "PROFISSIONAL"],
   "/profissionais": ["ADMIN", "RECEPCAO", "FINANCEIRO"],
   "/especialidades": ["ADMIN"],
   "/salas": ["ADMIN", "RECEPCAO"],
+  "/salas/ocupacao": ["ADMIN", "RECEPCAO", "FINANCEIRO"],
   "/usuarios": ["ADMIN"],
 };
 

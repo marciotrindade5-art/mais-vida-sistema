@@ -14,6 +14,12 @@ export const icons = {
   inicio: (
     <svg {...base}><path d="M3 11 12 4l9 7" /><path d="M5 10v10h14V10" /></svg>
   ),
+  agenda: (
+    <svg {...base}><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+  ),
+  ocupacao: (
+    <svg {...base}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
+  ),
   pacientes: (
     <svg {...base}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.6 2.6 3 5.2" /></svg>
   ),

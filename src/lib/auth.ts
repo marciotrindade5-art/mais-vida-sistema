@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Role } from "@prisma/client";
+import { db } from "./db";
 import { SESSION_COOKIE, verifySession } from "./session";
 
 export async function getSession() {
@@ -20,4 +21,10 @@ export async function requireRole(...roles: Role[]) {
   const session = await requireSession();
   if (!roles.includes(session.role)) redirect("/");
   return session;
+}
+
+/** Profissional vinculado ao usuário logado (perfil Profissional). */
+export async function currentProfessionalId(userId: string) {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { professionalId: true } });
+  return user?.professionalId ?? null;
 }

@@ -38,8 +38,13 @@ npm run dev                       # http://localhost:3000
 2. Importe o repositório na Vercel e configure `DATABASE_URL` e `SESSION_SECRET`.
 3. Rode `npm run db:migrate` e `npm run db:seed` apontando para o banco de produção.
 
+## Horário da clínica
+
+O horário de funcionamento (usado na grade da agenda e no cálculo de ocupação) fica em `src/lib/clinic.ts`.
+Hoje está seg. a sex. das 8h às 19h e sáb. das 8h às 13h. Datas são gravadas em UTC e exibidas no horário de Brasília.
+
 ## Etapas
 
 - [x] Fase 1: base, login, perfis e cadastros
-- [ ] Fase 2: agenda e ocupação das salas
+- [x] Fase 2: agenda (com sessões recorrentes e checagem de conflitos) e ocupação das salas
 - [ ] Fase 3: financeiro (recebimentos, despesas, caixa e repasses)
