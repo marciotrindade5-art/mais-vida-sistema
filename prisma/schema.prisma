@@ -74,28 +74,30 @@ model Specialty {
   active            Boolean        @default(true)
   professionals     Professional[]
   appointments      Appointment[]
+  planPrices        PlanPrice[]
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 }
 
 model Professional {
-  id           String        @id @default(cuid())
+  id           String                 @id @default(cuid())
   name         String
   email        String?
   phone        String?
   // Registro no conselho (CRP, CRFa, CREFITO, CRN, CRM...)
   registration String?
-  specialty    Specialty     @relation(fields: [specialtyId], references: [id])
+  specialty    Specialty              @relation(fields: [specialtyId], references: [id])
   specialtyId  String
-  repasseTipo  RepasseTipo   @default(PERCENTUAL)
+  repasseTipo  RepasseTipo            @default(PERCENTUAL)
   // PERCENTUAL: 0 a 100. FIXO_POR_SESSAO: valor em centavos.
-  repasseValor Int           @default(0)
-  active       Boolean       @default(true)
+  repasseValor Int                    @default(0)
+  active       Boolean                @default(true)
   user         User?
   appointments Appointment[]
   expenses     Expense[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  schedules    ProfessionalSchedule[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 }
 
 model Patient {
@@ -107,6 +109,11 @@ model Patient {
   email         String?
   guardianName  String?
   guardianPhone String?
+  // Sem plano = particular
+  healthPlan    HealthPlan?   @relation(fields: [healthPlanId], references: [id])
+  healthPlanId  String?
+  // Número da carteirinha do plano
+  cardNumber    String?
   notes         String?
   active        Boolean       @default(true)
   appointments  Appointment[]
@@ -115,14 +122,71 @@ model Patient {
   updatedAt     DateTime      @updatedAt
 }
 
-model Room {
+model Unit {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  rooms     Room[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HealthPlan {
   id           String        @id @default(cuid())
   name         String        @unique
-  description  String?
   active       Boolean       @default(true)
+  patients     Patient[]
+  prices       PlanPrice[]
   appointments Appointment[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+}
+
+/**
+ * Valor que o plano paga por sessão de cada especialidade, em centavos.
+ */
+model PlanPrice {
+  healthPlan   HealthPlan @relation(fields: [healthPlanId], references: [id], onDelete: Cascade)
+  healthPlanId String
+  specialty    Specialty  @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+  specialtyId  String
+  priceCents   Int
+
+  @@id([healthPlanId, specialtyId])
+}
+
+/**
+ * Bloco fixo da semana em que o profissional atende numa sala.
+ */
+model ProfessionalSchedule {
+  id             String       @id @default(cuid())
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  professionalId String
+  room           Room         @relation(fields: [roomId], references: [id])
+  roomId         String
+  // 0 = domingo ... 6 = sábado
+  weekday        Int
+  // Minutos desde a meia-noite
+  startMinute    Int
+  endMinute      Int
+
+  @@index([professionalId])
+  @@index([roomId, weekday])
+}
+
+model Room {
+  id           String                 @id @default(cuid())
+  name         String
+  description  String?
+  unit         Unit                   @relation(fields: [unitId], references: [id])
+  unitId       String
+  active       Boolean                @default(true)
+  appointments Appointment[]
+  schedules    ProfessionalSchedule[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@unique([unitId, name])
 }
 
 model Appointment {
@@ -138,8 +202,11 @@ model Appointment {
   startsAt       DateTime
   endsAt         DateTime
   status         AppointmentStatus @default(AGENDADO)
-  // Valor da sessão, em centavos
+  // Valor da sessão, em centavos, tirado da tabela de preços no agendamento
   priceCents     Int               @default(0)
+  // Plano do paciente no momento do agendamento (nulo = particular)
+  healthPlan     HealthPlan?       @relation(fields: [healthPlanId], references: [id])
+  healthPlanId   String?
   // Sessões criadas juntas por uma recorrência compartilham o mesmo seriesId
   seriesId       String?
   notes          String?

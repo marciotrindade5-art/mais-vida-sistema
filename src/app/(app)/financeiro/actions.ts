@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { CAN_EDIT } from "@/lib/roles";
+import { CAN_EDIT, onlyParticular } from "@/lib/roles";
 import { formObject, zodFieldErrors, type FormState } from "@/lib/form";
 import { parseMoneyToCents } from "@/lib/format";
 import { dateOnly, repasseCents } from "@/lib/finance";
@@ -40,7 +40,13 @@ export async function registerPayment(patientId: string, _prev: FormState, formD
         data: { patientId, amountCents: d.amount, method: d.method, paidAt: dateOnly(d.paidAt), notes: d.notes ?? null, createdById: session.userId },
       });
       const { count } = await tx.appointment.updateMany({
-        where: { id: { in: appointmentIds }, patientId, paymentId: null, status: { not: "CANCELADO" } },
+        where: {
+          id: { in: appointmentIds },
+          patientId,
+          paymentId: null,
+          status: { not: "CANCELADO" },
+          ...(onlyParticular(session.role) ? { healthPlanId: null } : {}),
+        },
         data: { paymentId: payment.id },
       });
       // Outra pessoa pode ter recebido alguma dessas sessões ao mesmo tempo.

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { NAV_ACCESS } from "@/lib/roles";
+import { NAV_ACCESS, onlyParticular } from "@/lib/roles";
 import { formatCents } from "@/lib/format";
 import { METHOD_LABELS, dateOnly } from "@/lib/finance";
 import { addDays, formatDayLong, isDayKey, todayKey } from "@/lib/time";
@@ -14,7 +14,10 @@ export default async function CaixaPage({ searchParams }: { searchParams: Promis
   const day = isDayKey(sp.data) ? sp.data : todayKey();
 
   const payments = await db.payment.findMany({
-    where: { paidAt: dateOnly(day) },
+    where: {
+      paidAt: dateOnly(day),
+      ...(onlyParticular(session.role) ? { method: { not: "CONVENIO" }, appointments: { none: { healthPlanId: { not: null } } } } : {}),
+    },
     include: { patient: true, createdBy: true, _count: { select: { appointments: true } } },
     orderBy: { createdAt: "asc" },
   });

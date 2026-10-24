@@ -6,9 +6,11 @@ import { CAN_EDIT, NAV_ACCESS, hasRole } from "@/lib/roles";
 import { AGENDA_END_HOUR, AGENDA_START_HOUR } from "@/lib/clinic";
 import { addDays, dayRange, formatDayLong, formatTime, isDayKey, minutesOfDay, todayKey } from "@/lib/time";
 import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
+import { UnitTabs } from "@/components/unit-tabs";
+import { unitsAndCurrent } from "@/lib/units";
 
 const ROW_MINUTES = 5;
-const ROW_PX = 6;
+const ROW_PX = 8;
 const ROWS = ((AGENDA_END_HOUR - AGENDA_START_HOUR) * 60) / ROW_MINUTES;
 
 function rowOf(date: Date) {
@@ -31,7 +33,7 @@ const STATUS_STYLE: Record<AppointmentStatus, string> = {
   CANCELADO: "hidden",
 };
 
-export default async function AgendaPage({ searchParams }: { searchParams: Promise<{ data?: string; esp?: string; prof?: string }> }) {
+export default async function AgendaPage({ searchParams }: { searchParams: Promise<{ data?: string; esp?: string; prof?: string; unidade?: string }> }) {
   const session = await requireRole(...NAV_ACCESS["/agenda"]);
   const sp = await searchParams;
   const day = isDayKey(sp.data) ? sp.data : todayKey();
@@ -40,17 +42,21 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   const ownProfessionalId = session.role === "PROFISSIONAL" ? await currentProfessionalId(session.userId) : null;
   const professionalFilter = session.role === "PROFISSIONAL" ? (ownProfessionalId ?? "nenhum") : sp.prof;
 
+  const { units, current: unit } = await unitsAndCurrent(sp.unidade);
+  const unitId = unit?.id ?? "nenhuma";
+
   const { start, end } = dayRange(day);
   const where: Prisma.AppointmentWhereInput = {
     startsAt: { gte: start, lt: end },
     status: { not: "CANCELADO" },
+    room: { unitId },
     ...(sp.esp ? { specialtyId: sp.esp } : {}),
     ...(professionalFilter ? { professionalId: professionalFilter } : {}),
   };
 
   const [appointments, rooms, specialties, professionals] = await Promise.all([
     db.appointment.findMany({ where, include: { patient: true, professional: true, specialty: true }, orderBy: { startsAt: "asc" } }),
-    db.room.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    db.room.findMany({ where: { active: true, unitId }, orderBy: { name: "asc" } }),
     db.specialty.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     session.role === "PROFISSIONAL" ? Promise.resolve([]) : db.professional.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
@@ -70,10 +76,13 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
 
   const link = (params: Record<string, string | undefined>) => {
     const q = new URLSearchParams();
-    const merged = { data: day, esp: sp.esp, prof: sp.prof, ...params };
+    const merged = { data: day, unidade: unit?.id, esp: sp.esp, prof: sp.prof, ...params };
     for (const [k, v] of Object.entries(merged)) if (v) q.set(k, v);
     return `/agenda?${q}`;
   };
+
+  // Pacientes do mesmo atendimento (dupla) aparecem num cartão só.
+  const sessions = [...Map.groupBy(appointments, (a) => `${a.professionalId}|${a.roomId}|${a.startsAt.getTime()}|${a.endsAt.getTime()}`).values()];
 
   const hours = Array.from({ length: AGENDA_END_HOUR - AGENDA_START_HOUR }, (_, i) => AGENDA_START_HOUR + i);
 
@@ -81,7 +90,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     <>
       <PageHeader
         title="Agenda"
-        subtitle={formatDayLong(day)}
+        subtitle={`${formatDayLong(day)}${unit ? ` · ${unit.name}` : ""}`}
         actions={
           <>
             <nav aria-label="Navegar entre dias" className="flex items-center gap-1 rounded-xl bg-linha p-1">
@@ -92,6 +101,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
             <form className="flex">
               <label htmlFor="data" className="sr-only">Ir para a data</label>
               <input id="data" name="data" type="date" defaultValue={day} className="h-11 rounded-[10px] border border-[#c9cbbe] bg-white px-3" />
+              {unit && <input type="hidden" name="unidade" value={unit.id} />}
               {sp.esp && <input type="hidden" name="esp" value={sp.esp} />}
               {sp.prof && <input type="hidden" name="prof" value={sp.prof} />}
               <button type="submit" className="ml-2 h-11 rounded-[10px] px-3 font-semibold text-verde hover:bg-linha">Ir</button>
@@ -100,6 +110,8 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           </>
         }
       />
+
+      <UnitTabs units={units} currentId={unit?.id} href={(id) => link({ unidade: id })} />
 
       <section aria-label="Resumo do dia" className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-4">
         {summary.map((s) => (
@@ -123,6 +135,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
         {professionals.length > 0 && (
           <form className="ml-auto flex items-center gap-2">
             <input type="hidden" name="data" value={day} />
+            {unit && <input type="hidden" name="unidade" value={unit.id} />}
             {sp.esp && <input type="hidden" name="esp" value={sp.esp} />}
             <label htmlFor="prof" className="text-sm text-suave">Profissional</label>
             <select id="prof" name="prof" defaultValue={sp.prof ?? ""} className="h-10 rounded-[10px] border border-[#c9cbbe] bg-white px-3">
@@ -138,7 +151,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
 
       <Card className="p-4">
         {allRooms.length === 0 ? (
-          <EmptyState>Cadastre as salas para usar a agenda.</EmptyState>
+          <EmptyState>Cadastre as salas{unit ? ` da unidade ${unit.name}` : ""} para usar a agenda.</EmptyState>
         ) : (
           <div className="overflow-x-auto">
             <div
@@ -177,7 +190,8 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                     )),
                   ),
                 )}
-              {appointments.map((a) => {
+              {sessions.map((group) => {
+                const a = group[0];
                 const col = allRooms.findIndex((r) => r.id === a.roomId) + 2;
                 const rowStart = rowOf(a.startsAt);
                 const rowEnd = Math.max(rowOf(a.endsAt), rowStart + 4);
@@ -185,11 +199,12 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                   <Link
                     key={a.id}
                     href={`/agenda/${a.id}`}
+                    title={group.length > 1 ? `Dupla: ${group.map((g) => g.patient.name).join(" e ")}` : undefined}
                     className={`relative z-10 my-0.5 flex flex-col gap-0.5 overflow-hidden rounded-lg px-2.5 py-1 text-tinta hover:outline-2 hover:outline-verde ${STATUS_STYLE[a.status]}`}
                     style={{ gridColumn: col, gridRow: `${rowStart} / ${rowEnd}`, background: `color-mix(in srgb, ${a.specialty.color} 16%, white)` }}
                   >
                     <span className="truncate text-sm">
-                      <span className="nome font-semibold">{a.patient.name}</span>
+                      <span className="nome font-semibold">{group.length > 1 ? group.map((g) => g.patient.name.split(" ")[0]).join(" + ") : a.patient.name}</span>
                       {STATUS_SUFFIX[a.status] && <span className="font-medium"> · {STATUS_SUFFIX[a.status]}</span>}
                     </span>
                     <span className="truncate text-[13px]" style={{ color: `color-mix(in srgb, ${a.specialty.color} 70%, black)` }}>

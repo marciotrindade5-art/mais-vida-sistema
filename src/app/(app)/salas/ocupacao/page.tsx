@@ -6,6 +6,8 @@ import { OCCUPYING } from "@/lib/agenda";
 import { bookedMinutes, openMinutes } from "@/lib/occupancy";
 import { addDays, dayRange, formatDayShort, isDayKey, mondayOf, todayKey } from "@/lib/time";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
+import { UnitTabs } from "@/components/unit-tabs";
+import { unitsAndCurrent } from "@/lib/units";
 
 // Escala da sálvia ao verde da marca; o texto troca de cor para manter o contraste.
 const SCALE = [
@@ -24,16 +26,19 @@ function pct(booked: number, available: number) {
   return available > 0 ? Math.round((booked / available) * 100) : 0;
 }
 
-export default async function OcupacaoPage({ searchParams }: { searchParams: Promise<{ semana?: string }> }) {
+export default async function OcupacaoPage({ searchParams }: { searchParams: Promise<{ semana?: string; unidade?: string }> }) {
   await requireRole(...NAV_ACCESS["/salas/ocupacao"]);
   const sp = await searchParams;
   const monday = mondayOf(isDayKey(sp.semana) ? sp.semana : todayKey());
+  const { units, current: unit } = await unitsAndCurrent(sp.unidade);
+  const unitId = unit?.id ?? "nenhuma";
+  const q = (semana: string) => `/salas/ocupacao?semana=${semana}${unit ? `&unidade=${unit.id}` : ""}`;
   const days = Array.from({ length: 6 }, (_, i) => addDays(monday, i)).filter((d) => openMinutes(d) > 0);
 
   const [rooms, bookings] = await Promise.all([
-    db.room.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    db.room.findMany({ where: { active: true, unitId }, orderBy: { name: "asc" } }),
     db.appointment.findMany({
-      where: { status: { in: OCCUPYING }, startsAt: { gte: dayRange(monday).start, lt: dayRange(addDays(monday, 7)).start } },
+      where: { status: { in: OCCUPYING }, room: { unitId }, startsAt: { gte: dayRange(monday).start, lt: dayRange(addDays(monday, 7)).start } },
       select: { roomId: true, startsAt: true, endsAt: true },
     }),
   ]);
@@ -58,15 +63,17 @@ export default async function OcupacaoPage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader
         title="Ocupação das salas"
-        subtitle={`Semana de ${fmtRange}`}
+        subtitle={`Semana de ${fmtRange}${unit ? ` · ${unit.name}` : ""}`}
         actions={
           <nav aria-label="Navegar entre semanas" className="flex items-center gap-1 rounded-xl bg-linha p-1">
-            <Link href={`/salas/ocupacao?semana=${addDays(monday, -7)}`} aria-label="Semana anterior" className="flex size-10 items-center justify-center rounded-lg hover:bg-white">‹</Link>
-            <Link href="/salas/ocupacao" className="flex h-10 items-center rounded-lg px-3 hover:bg-white">Esta semana</Link>
-            <Link href={`/salas/ocupacao?semana=${addDays(monday, 7)}`} aria-label="Próxima semana" className="flex size-10 items-center justify-center rounded-lg hover:bg-white">›</Link>
+            <Link href={q(addDays(monday, -7))} aria-label="Semana anterior" className="flex size-10 items-center justify-center rounded-lg hover:bg-white">‹</Link>
+            <Link href={q(mondayOf(todayKey()))} className="flex h-10 items-center rounded-lg px-3 hover:bg-white">Esta semana</Link>
+            <Link href={q(addDays(monday, 7))} aria-label="Próxima semana" className="flex size-10 items-center justify-center rounded-lg hover:bg-white">›</Link>
           </nav>
         }
       />
+
+      <UnitTabs units={units} currentId={unit?.id} href={(id) => `/salas/ocupacao?semana=${monday}&unidade=${id}`} />
 
       {rooms.length === 0 ? (
         <Card><EmptyState>Cadastre as salas para ver a ocupação.</EmptyState></Card>
@@ -106,7 +113,7 @@ export default async function OcupacaoPage({ searchParams }: { searchParams: Pro
                     <th scope="col" className="px-2 text-left font-medium text-suave">Sala</th>
                     {days.map((d) => (
                       <th key={d} scope="col" className="font-medium capitalize text-suave">
-                        <Link href={`/agenda?data=${d}`} className="hover:text-verde hover:underline">{formatDayShort(d)}</Link>
+                        <Link href={`/agenda?data=${d}${unit ? `&unidade=${unit.id}` : ""}`} className="hover:text-verde hover:underline">{formatDayShort(d)}</Link>
                       </th>
                     ))}
                     <th scope="col" className="font-semibold text-verde">Semana</th>

@@ -8,12 +8,16 @@ import { logout } from "../login/actions";
 const NAV: NavItem[] = [
   { href: "/", label: "Início", icon: icons.inicio },
   { href: "/agenda", label: "Agenda", icon: icons.agenda },
+  { href: "/agenda/livres", label: "Horários livres", icon: icons.livres },
+  { href: "/agenda/mapa", label: "Mapa de disponibilidade", icon: icons.mapa },
   { href: "/salas/ocupacao", label: "Ocupação das salas", icon: icons.ocupacao },
   { href: "/financeiro", label: "Financeiro", icon: icons.financeiro },
   { href: "/pacientes", label: "Pacientes", icon: icons.pacientes },
   { href: "/profissionais", label: "Profissionais", icon: icons.profissionais },
   { href: "/especialidades", label: "Especialidades", icon: icons.especialidades },
+  { href: "/planos", label: "Planos de saúde", icon: icons.planos },
   { href: "/salas", label: "Salas", icon: icons.salas },
+  { href: "/unidades", label: "Unidades", icon: icons.unidades },
   { href: "/usuarios", label: "Usuários", icon: icons.usuarios },
 ];
 

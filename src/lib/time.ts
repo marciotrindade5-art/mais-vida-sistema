@@ -71,3 +71,16 @@ export function formatDayShort(day: string) {
     new Date(`${day}T12:00:00Z`),
   );
 }
+
+/** 480 -> "08:00" */
+export function minutesToTime(min: number) {
+  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+}
+
+/** "08:30" -> 510 */
+export function timeToMinutes(time: string) {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+export const WEEKDAY_NAMES = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];

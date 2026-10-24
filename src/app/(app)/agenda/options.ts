@@ -15,19 +15,18 @@ export async function appointmentOptions(include?: { patientId?: string; profess
     }),
     db.room.findMany({
       where: { OR: [{ active: true }, { id: include?.roomId ?? "" }] },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      orderBy: [{ unit: { name: "asc" } }, { name: "asc" }],
+      select: { id: true, name: true, unit: { select: { id: true, name: true } } },
     }),
   ]);
   return {
     patients,
-    rooms,
+    rooms: rooms.map((r) => ({ id: r.id, name: r.name, unitId: r.unit.id, unitName: r.unit.name })),
     professionals: professionals.map((p) => ({
       id: p.id,
       name: p.name,
       specialtyName: p.specialty.name,
       defaultMinutes: p.specialty.defaultMinutes,
-      defaultPriceCents: p.specialty.defaultPriceCents,
     })),
   };
 }

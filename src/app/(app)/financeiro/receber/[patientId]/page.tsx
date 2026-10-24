@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { CAN_EDIT, NAV_ACCESS, hasRole } from "@/lib/roles";
+import { CAN_EDIT, NAV_ACCESS, hasRole, onlyParticular } from "@/lib/roles";
 import { formatCents, formatDate } from "@/lib/format";
 import { METHOD_LABELS } from "@/lib/finance";
 import { addDays, dayKey, dayRange, formatDayShort, formatTime, todayKey } from "@/lib/time";
@@ -20,6 +20,7 @@ export default async function ReceberPacientePage({ params, searchParams }: { pa
   if (!patient) notFound();
 
   const today = todayKey();
+  const particularOnly = onlyParticular(session.role);
   const limit = dayRange(addDays(today, ADVANCE_DAYS)).end;
   const [sessions, payments] = await Promise.all([
     db.appointment.findMany({
@@ -27,12 +28,14 @@ export default async function ReceberPacientePage({ params, searchParams }: { pa
         patientId,
         paymentId: null,
         priceCents: { gt: 0 },
+        ...(particularOnly ? { healthPlanId: null } : {}),
         OR: [{ status: "REALIZADO" }, { status: { in: ["AGENDADO", "CONFIRMADO"] }, startsAt: { lte: limit } }],
       },
       include: { professional: true, specialty: true },
       orderBy: { startsAt: "asc" },
     }),
-    db.payment.findMany({ where: { patientId }, include: { _count: { select: { appointments: true } } }, orderBy: { paidAt: "desc" }, take: 10 }),
+    db.payment.findMany({
+      where: { patientId, ...(particularOnly ? { method: { not: "CONVENIO" }, appointments: { none: { healthPlanId: { not: null } } } } : {}) }, include: { _count: { select: { appointments: true } } }, orderBy: { paidAt: "desc" }, take: 10 }),
   ]);
   const canDelete = hasRole(session.role, CAN_EDIT.despesas);
 
@@ -42,7 +45,7 @@ export default async function ReceberPacientePage({ params, searchParams }: { pa
       {ok && <p role="status" className="max-w-3xl rounded-[10px] bg-[#e4eee4] px-4 py-3 text-[#2d5738]">Recebimento registrado.</p>}
       <Card className="max-w-3xl">
         {sessions.length === 0 ? (
-          <EmptyState>Nenhuma sessão em aberto para este paciente.</EmptyState>
+          <EmptyState>Nenhuma sessão {particularOnly ? "particular " : ""}em aberto para este paciente.</EmptyState>
         ) : (
           <PaymentForm
             key={sessions.map((s) => s.id).join()}
