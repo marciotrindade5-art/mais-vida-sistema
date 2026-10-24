@@ -21,6 +21,8 @@ const schema = z.object({
   email: z.email("E-mail inválido.").optional(),
   guardianName: z.string().optional(),
   guardianPhone: z.string().optional(),
+  healthPlanId: z.string().optional(),
+  cardNumber: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -30,6 +32,7 @@ export async function savePatient(id: string | null, _prev: FormState, formData:
   if (!parsed.success) return { fieldErrors: zodFieldErrors(parsed.error) };
 
   const { birthDate, ...rest } = parsed.data;
+  if (rest.healthPlanId && !rest.cardNumber) return { fieldErrors: { cardNumber: "Informe o número da carteirinha." } };
   const data = {
     ...rest,
     cpf: rest.cpf ?? null,
@@ -37,6 +40,9 @@ export async function savePatient(id: string | null, _prev: FormState, formData:
     email: rest.email ?? null,
     guardianName: rest.guardianName ?? null,
     guardianPhone: rest.guardianPhone ?? null,
+    healthPlanId: rest.healthPlanId ?? null,
+    // Particular não tem carteirinha.
+    cardNumber: rest.healthPlanId ? (rest.cardNumber ?? null) : null,
     notes: rest.notes ?? null,
     birthDate: birthDate ? new Date(birthDate) : null,
     active: formData.get("active") === "on" || id === null,

@@ -7,7 +7,7 @@ import { Badge, Card, EmptyState, LinkButton, PageHeader, Table } from "@/compon
 export default async function SalasPage() {
   const session = await requireRole(...NAV_ACCESS["/salas"]);
   const canEdit = hasRole(session.role, CAN_EDIT.salas);
-  const rooms = await db.room.findMany({ orderBy: { name: "asc" } });
+  const rooms = await db.room.findMany({ orderBy: [{ unit: { name: "asc" } }, { name: "asc" }], include: { unit: true } });
 
   return (
     <>
@@ -16,12 +16,13 @@ export default async function SalasPage() {
         {rooms.length === 0 ? (
           <EmptyState>Nenhuma sala cadastrada ainda.</EmptyState>
         ) : (
-          <Table head={["Sala", "Descrição", "Situação"]}>
+          <Table head={["Sala", "Unidade", "Descrição", "Situação"]}>
             {rooms.map((r) => (
               <tr key={r.id}>
                 <td>
                   {canEdit ? <Link href={`/salas/${r.id}`} className="font-semibold text-verde hover:underline">{r.name}</Link> : <span className="font-semibold">{r.name}</span>}
                 </td>
+                <td>{r.unit.name}</td>
                 <td>{r.description ?? ""}</td>
                 <td><Badge tone={r.active ? "ok" : "neutral"}>{r.active ? "Ativa" : "Inativa"}</Badge></td>
               </tr>

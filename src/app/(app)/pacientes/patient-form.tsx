@@ -1,15 +1,17 @@
 "use client";
 
 import type { Patient } from "@prisma/client";
-import { CheckboxField, Field, FormError, LinkButton, TextareaField } from "@/components/ui";
+import { useState } from "react";
+import { CheckboxField, Field, FormError, LinkButton, SelectField, TextareaField } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { useFormAction } from "@/lib/use-form-action";
 import { dateToInput } from "@/lib/format";
 import { savePatient } from "./actions";
 
-export function PatientForm({ patient }: { patient?: Patient }) {
+export function PatientForm({ patient, plans }: { patient?: Patient; plans: { id: string; name: string }[] }) {
   const { state, onSubmit, pending } = useFormAction(savePatient.bind(null, patient?.id ?? null));
   const e = state?.fieldErrors ?? {};
+  const [planId, setPlanId] = useState(patient?.healthPlanId ?? "");
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5">
       <FormError message={state?.error} />
@@ -21,6 +23,15 @@ export function PatientForm({ patient }: { patient?: Patient }) {
         <Field label="E-mail" name="email" type="email" defaultValue={patient?.email ?? ""} error={e.email} />
         <Field label="Responsável" name="guardianName" defaultValue={patient?.guardianName ?? ""} hint="Para pacientes menores de idade" />
         <Field label="Telefone do responsável" name="guardianPhone" type="tel" defaultValue={patient?.guardianPhone ?? ""} />
+        <SelectField label="Atendimento" name="healthPlanId" value={planId} onChange={(ev) => setPlanId(ev.target.value)} error={e.healthPlanId}>
+          <option value="">Particular</option>
+          {plans.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </SelectField>
+        {planId && (
+          <Field label="Número da carteirinha" name="cardNumber" inputMode="numeric" defaultValue={patient?.cardNumber ?? ""} error={e.cardNumber} required />
+        )}
         <TextareaField label="Observações" name="notes" defaultValue={patient?.notes ?? ""} className="sm:col-span-2" />
         {patient && <CheckboxField label="Paciente ativo" name="active" defaultChecked={patient.active} />}
       </div>

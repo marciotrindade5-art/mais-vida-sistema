@@ -8,8 +8,9 @@ import { Badge, Card, EmptyState, LinkButton, PageHeader, Table } from "@/compon
 export default async function ProfissionaisPage() {
   const session = await requireRole(...NAV_ACCESS["/profissionais"]);
   const canEdit = hasRole(session.role, CAN_EDIT.profissionais);
+  const canEditGrade = hasRole(session.role, CAN_EDIT.grade);
   const showRepasse = hasRole(session.role, ["ADMIN", "FINANCEIRO"]);
-  const professionals = await db.professional.findMany({ orderBy: { name: "asc" }, include: { specialty: true } });
+  const professionals = await db.professional.findMany({ orderBy: { name: "asc" }, include: { specialty: true, _count: { select: { schedules: true } } } });
 
   return (
     <>
@@ -22,7 +23,7 @@ export default async function ProfissionaisPage() {
         {professionals.length === 0 ? (
           <EmptyState>Nenhum profissional cadastrado ainda.</EmptyState>
         ) : (
-          <Table head={["Nome", "Especialidade", "Registro", "Telefone", ...(showRepasse ? ["Repasse"] : []), "Situação"]}>
+          <Table head={["Nome", "Especialidade", "Registro", "Telefone", ...(showRepasse ? ["Repasse"] : []), "Horários", "Situação"]}>
             {professionals.map((p) => (
               <tr key={p.id}>
                 <td>
@@ -37,6 +38,15 @@ export default async function ProfissionaisPage() {
                 <td>{p.registration ?? ""}</td>
                 <td>{p.phone ?? ""}</td>
                 {showRepasse && <td>{p.repasseTipo === "PERCENTUAL" ? `${p.repasseValor}%` : `${formatCents(p.repasseValor)} / sessão`}</td>}
+                <td>
+                  {canEditGrade ? (
+                    <Link href={`/profissionais/${p.id}/horarios`} className="text-verde hover:underline">
+                      {p._count.schedules > 0 ? `${p._count.schedules} ${p._count.schedules === 1 ? "bloco" : "blocos"}` : "Definir"}
+                    </Link>
+                  ) : (
+                    <span className="text-suave">{p._count.schedules > 0 ? `${p._count.schedules} blocos` : "Não definidos"}</span>
+                  )}
+                </td>
                 <td><Badge tone={p.active ? "ok" : "neutral"}>{p.active ? "Ativo" : "Inativo"}</Badge></td>
               </tr>
             ))}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { NAV_ACCESS } from "@/lib/roles";
+import { NAV_ACCESS, onlyParticular } from "@/lib/roles";
 import { formatCents } from "@/lib/format";
 import { Card, EmptyState, PageHeader, Table } from "@/components/ui";
 import { FinanceTabs } from "../tabs";
@@ -15,6 +15,7 @@ export default async function ReceberPage({ searchParams }: { searchParams: Prom
       paymentId: null,
       status: "REALIZADO",
       priceCents: { gt: 0 },
+      ...(onlyParticular(session.role) ? { healthPlanId: null } : {}),
       ...(q ? { patient: { name: { contains: q, mode: "insensitive" } } } : {}),
     },
     select: { patientId: true, priceCents: true, startsAt: true, patient: { select: { name: true } } },
@@ -34,7 +35,10 @@ export default async function ReceberPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="A receber" subtitle={`${formatCents(total)} em sessões realizadas sem pagamento`} />
+      <PageHeader
+        title="A receber"
+        subtitle={`${formatCents(total)} em sessões ${onlyParticular(session.role) ? "particulares " : ""}realizadas sem pagamento`}
+      />
       <FinanceTabs role={session.role} current="/financeiro/receber" />
       <Card className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

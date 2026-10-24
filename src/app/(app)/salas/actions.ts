@@ -11,6 +11,7 @@ import { formObject, isUniqueViolation, zodFieldErrors, type FormState } from "@
 const schema = z.object({
   name: z.string({ error: "Informe o nome da sala." }).min(1, "Informe o nome da sala."),
   description: z.string().optional(),
+  unitId: z.string({ error: "Escolha a unidade." }),
 });
 
 export async function saveRoom(id: string | null, _prev: FormState, formData: FormData): Promise<FormState> {
@@ -21,13 +22,14 @@ export async function saveRoom(id: string | null, _prev: FormState, formData: Fo
   const data = {
     name: parsed.data.name,
     description: parsed.data.description ?? null,
+    unitId: parsed.data.unitId,
     active: formData.get("active") === "on" || id === null,
   };
   try {
     if (id) await db.room.update({ where: { id }, data });
     else await db.room.create({ data });
   } catch (e) {
-    if (isUniqueViolation(e)) return { fieldErrors: { name: "Já existe uma sala com este nome." } };
+    if (isUniqueViolation(e)) return { fieldErrors: { name: "Já existe uma sala com este nome nesta unidade." } };
     throw e;
   }
   revalidatePath("/salas");

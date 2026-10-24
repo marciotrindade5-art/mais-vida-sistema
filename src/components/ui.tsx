@@ -64,16 +64,18 @@ export function SelectField({
   label,
   name,
   error,
+  hint,
   children,
   className,
   ...props
-}: ComponentProps<"select"> & { label: string; name: string; error?: string }) {
+}: ComponentProps<"select"> & { label: string; name: string; error?: string; hint?: string }) {
   return (
     <label className={cx("flex flex-col gap-1.5", className)}>
       <span className="text-sm font-medium">{label}</span>
       <select name={name} className={inputClass} aria-invalid={!!error || undefined} {...props}>
         {children}
       </select>
+      {hint && !error && <span className="text-xs text-suave">{hint}</span>}
       {error && <span className="text-sm text-erro">{error}</span>}
     </label>
   );

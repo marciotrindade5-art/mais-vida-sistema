@@ -1,5 +1,5 @@
 import { requireRole } from "@/lib/auth";
-import { CAN_EDIT } from "@/lib/roles";
+import { CAN_EDIT, SEE_PRICES, hasRole } from "@/lib/roles";
 import { isDayKey, todayKey } from "@/lib/time";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { AppointmentForm } from "../appointment-form";
@@ -8,9 +8,9 @@ import { appointmentOptions } from "../options";
 export default async function NovoAgendamentoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ data?: string; sala?: string; hora?: string; paciente?: string }>;
+  searchParams: Promise<{ data?: string; sala?: string; hora?: string; paciente?: string; prof?: string; dur?: string; dupla?: string }>;
 }) {
-  await requireRole(...CAN_EDIT.agenda);
+  const session = await requireRole(...CAN_EDIT.agenda);
   const sp = await searchParams;
   const options = await appointmentOptions();
   const missing = [
@@ -28,11 +28,15 @@ export default async function NovoAgendamentoPage({
         ) : (
           <AppointmentForm
             {...options}
+            canSetPrice={hasRole(session.role, SEE_PRICES)}
+            joinSession={sp.dupla === "1"}
             defaults={{
               date: isDayKey(sp.data) ? sp.data : todayKey(),
               time: sp.hora && /^\d{2}:\d{2}$/.test(sp.hora) ? sp.hora : undefined,
               roomId: sp.sala,
               patientId: sp.paciente,
+              professionalId: sp.prof,
+              duration: sp.dur && /^\d{2,3}$/.test(sp.dur) ? Number(sp.dur) : undefined,
             }}
           />
         )}

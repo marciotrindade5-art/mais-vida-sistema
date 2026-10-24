@@ -14,11 +14,18 @@ Sistema web de gestão da Clínica Mais Vida: cadastros, agenda, ocupação das 
 | Perfil | Acesso |
 | --- | --- |
 | Administrador | Tudo |
-| Recepção | Agenda (marcar, confirmar, remarcar, cancelar), pacientes, salas, ocupação, recebimentos e caixa do dia |
+| Recepção | Agenda (marcar, confirmar, remarcar, cancelar), horários livres, mapa de disponibilidade, grade dos profissionais, pacientes, salas, ocupação, recebimentos e caixa do dia (só sessões particulares) |
 | Profissional | A própria agenda (registra sessão realizada ou falta) e a lista de pacientes |
-| Financeiro | Resumo financeiro, recebimentos, caixa, despesas, repasses e ocupação |
+| Financeiro | Resumo financeiro, recebimentos, caixa, despesas, repasses, planos de saúde e ocupação |
 
-As regras ficam em `src/lib/roles.ts`.
+As regras ficam em `src/lib/roles.ts`. Valores de sessão, tabela dos planos e repasses só aparecem para administrador e financeiro; a recepção vê o valor das sessões particulares apenas na hora de receber.
+
+## Unidades, planos e grade
+
+- A clínica tem duas unidades (Vila e Aterrado). Cada sala pertence a uma unidade, e agenda, ocupação, horários livres e mapa são vistos por unidade. A última unidade escolhida fica lembrada.
+- Cada paciente é particular ou tem um plano de saúde, com o número da carteirinha. O valor da sessão sai da tabela do plano para a especialidade; particular, ou plano que não cobre a especialidade, usa o valor particular da especialidade.
+- Cada profissional tem uma grade semanal (dia, horário e sala). A tela **Horários livres** cruza essa grade com a agenda e mostra os horários vagos para agendar com um clique; o **Mapa de disponibilidade** mostra a semana inteira por profissional.
+- Um atendimento comporta até 2 pacientes (dupla), no mesmo horário, com o mesmo profissional e a mesma sala.
 
 ## Rodando localmente
 

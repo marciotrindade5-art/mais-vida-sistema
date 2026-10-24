@@ -8,7 +8,8 @@ import { centsToInput } from "@/lib/format";
 import { saveAppointment } from "./actions";
 
 type Option = { id: string; name: string };
-type ProfessionalOption = Option & { specialtyName: string; defaultMinutes: number; defaultPriceCents: number };
+type ProfessionalOption = Option & { specialtyName: string; defaultMinutes: number };
+type RoomOption = Option & { unitId: string; unitName: string };
 
 export type AppointmentDefaults = {
   patientId?: string;
@@ -30,36 +31,49 @@ const WEEKDAYS = [
   { value: 6, label: "Sáb" },
 ];
 
+const DURATIONS = [30, 40, 45, 50, 60, 90, 120, 180];
+
+function durationLabel(min: number) {
+  if (min < 60) return `${min} minutos`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h}h${m ? String(m).padStart(2, "0") : ""}`;
+}
+
 export function AppointmentForm({
   id,
   defaults,
   patients,
   professionals,
   rooms,
+  canSetPrice,
+  joinSession,
 }: {
   id?: string;
   defaults: AppointmentDefaults;
   patients: Option[];
   professionals: ProfessionalOption[];
-  rooms: Option[];
+  rooms: RoomOption[];
+  canSetPrice: boolean;
+  /** Veio de "adicionar segundo paciente" numa sessão já marcada. */
+  joinSession?: boolean;
 }) {
   const { state, onSubmit, pending } = useFormAction(saveAppointment.bind(null, id ?? null));
   const e = state?.fieldErrors ?? {};
 
   const initialProfessional = professionals.find((p) => p.id === defaults.professionalId);
   const [duration, setDuration] = useState(String(defaults.duration ?? initialProfessional?.defaultMinutes ?? 50));
-  const [price, setPrice] = useState(
-    defaults.priceCents != null ? centsToInput(defaults.priceCents) : initialProfessional ? centsToInput(initialProfessional.defaultPriceCents) : "",
-  );
   const [date, setDate] = useState(defaults.date);
   const [repeat, setRepeat] = useState<"none" | "weekly">("none");
+  const [dupla, setDupla] = useState(!!joinSession);
   const startWeekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+  const durations = DURATIONS.includes(Number(duration)) ? DURATIONS : [...DURATIONS, Number(duration)].sort((a, b) => a - b);
+
+  const units = [...new Map(rooms.map((r) => [r.unitId, r.unitName])).entries()];
 
   function onProfessionalChange(professionalId: string) {
     const p = professionals.find((x) => x.id === professionalId);
-    if (!p) return;
-    setDuration(String(p.defaultMinutes));
-    setPrice(centsToInput(p.defaultPriceCents));
+    if (p) setDuration(String(p.defaultMinutes));
   }
 
   return (
@@ -72,6 +86,22 @@ export function AppointmentForm({
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </SelectField>
+        {!id && (
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <CheckboxField label="Atendimento em dupla (2 pacientes juntos)" name="dupla" checked={dupla} onChange={(ev) => setDupla(ev.target.checked)} />
+            {dupla && joinSession && (
+              <p className="text-sm text-suave">O paciente escolhido entra no atendimento que já está marcado neste horário.</p>
+            )}
+            {dupla && !joinSession && (
+              <SelectField label="Segundo paciente" name="patientId2" defaultValue="" error={e.patientId2} hint="Deixe em branco para juntar a um atendimento já marcado neste horário">
+                <option value="" disabled>Escolha...</option>
+                {patients.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </SelectField>
+            )}
+          </div>
+        )}
         <SelectField
           label="Profissional"
           name="professionalId"
@@ -87,14 +117,32 @@ export function AppointmentForm({
         </SelectField>
         <SelectField label="Sala" name="roomId" defaultValue={defaults.roomId ?? ""} error={e.roomId} required>
           <option value="" disabled>Escolha...</option>
-          {rooms.map((r) => (
-            <option key={r.id} value={r.id}>{r.name}</option>
+          {units.map(([unitId, unitName]) => (
+            <optgroup key={unitId} label={unitName}>
+              {rooms.filter((r) => r.unitId === unitId).map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </optgroup>
           ))}
         </SelectField>
         <Field label="Data" name="date" type="date" value={date} onChange={(ev) => setDate(ev.target.value)} error={e.date} required />
         <Field label="Horário" name="time" type="time" step={300} defaultValue={defaults.time ?? ""} error={e.time} required />
-        <Field label="Duração (minutos)" name="duration" type="number" min={10} step={5} value={duration} onChange={(ev) => setDuration(ev.target.value)} error={e.duration} required />
-        <Field label="Valor da sessão (R$)" name="price" inputMode="decimal" value={price} onChange={(ev) => setPrice(ev.target.value)} placeholder="0,00" error={e.price} />
+        <SelectField label="Duração" name="duration" value={duration} onChange={(ev) => setDuration(ev.target.value)} error={e.duration} required>
+          {durations.map((m) => (
+            <option key={m} value={m}>{durationLabel(m)}</option>
+          ))}
+        </SelectField>
+        {canSetPrice && (
+          <Field
+            label="Valor da sessão (R$)"
+            name="price"
+            inputMode="decimal"
+            defaultValue={defaults.priceCents != null ? centsToInput(defaults.priceCents) : ""}
+            placeholder="Pela tabela"
+            hint="Em branco, usa a tabela do plano ou o valor particular"
+            error={e.price}
+          />
+        )}
         <TextareaField label="Observações" name="notes" defaultValue={defaults.notes ?? ""} className="sm:col-span-2" />
       </div>
 

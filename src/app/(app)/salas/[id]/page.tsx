@@ -8,12 +8,15 @@ import { RoomForm } from "../room-form";
 export default async function EditarSalaPage({ params }: { params: Promise<{ id: string }> }) {
   await requireRole(...CAN_EDIT.salas);
   const { id } = await params;
-  const room = await db.room.findUnique({ where: { id } });
+  const [room, units] = await Promise.all([
+    db.room.findUnique({ where: { id } }),
+    db.unit.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ]);
   if (!room) notFound();
   return (
     <>
       <PageHeader title={room.name} subtitle="Editar sala" />
-      <Card className="max-w-2xl"><RoomForm room={room} /></Card>
+      <Card className="max-w-2xl"><RoomForm room={room} units={units} /></Card>
     </>
   );
 }
