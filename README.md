@@ -44,7 +44,7 @@ npm run dev                       # http://localhost:3000
 1. Importe o repositório na Vercel.
 2. Em **Storage**, crie um banco Postgres da Neon e conecte ao projeto (isso preenche `DATABASE_URL`).
 3. Em **Settings → Environment Variables**, defina `SESSION_SECRET` (texto aleatório longo), `ADMIN_EMAIL` e `ADMIN_PASSWORD`.
-4. Faça o deploy. O script `vercel-build` aplica as migrações, cria as especialidades e o primeiro administrador (só se ainda não existir) e depois gera o build.
+4. Faça o deploy. Em produção, o script `vercel-build` aplica as migrações, cria as especialidades e o primeiro administrador (só se ainda não existir) e depois gera o build. As prévias de pull request só geram o build, sem mexer no banco.
 
 ## Horário da clínica
 
