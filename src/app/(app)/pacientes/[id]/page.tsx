@@ -8,15 +8,16 @@ import { PatientForm } from "../patient-form";
 export default async function EditarPacientePage({ params }: { params: Promise<{ id: string }> }) {
   await requireRole(...CAN_EDIT.pacientes);
   const { id } = await params;
-  const [patient, plans] = await Promise.all([
-    db.patient.findUnique({ where: { id } }),
+  const [patient, plans, specialties] = await Promise.all([
+    db.patient.findUnique({ where: { id }, include: { specialties: { select: { id: true } } } }),
     db.healthPlan.findMany({ where: { OR: [{ active: true }, { patients: { some: { id } } }] }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.specialty.findMany({ where: { OR: [{ active: true }, { patients: { some: { id } } }] }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   if (!patient) notFound();
   return (
     <>
       <PageHeader title={patient.name} subtitle="Editar paciente" />
-      <Card className="max-w-3xl"><PatientForm patient={patient} plans={plans} /></Card>
+      <Card className="max-w-3xl"><PatientForm patient={patient} plans={plans} specialties={specialties} /></Card>
     </>
   );
 }

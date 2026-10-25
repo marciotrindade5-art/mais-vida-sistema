@@ -75,6 +75,7 @@ model Specialty {
   professionals     Professional[]
   appointments      Appointment[]
   planPrices        PlanPrice[]
+  patients          Patient[]
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 }
@@ -114,6 +115,10 @@ model Patient {
   healthPlanId  String?
   // Número da carteirinha do plano
   cardNumber    String?
+  // Paciente com Transtorno do Espectro Autista
+  tea           Boolean       @default(false)
+  // Especialidades que o paciente faz
+  specialties   Specialty[]
   notes         String?
   active        Boolean       @default(true)
   appointments  Appointment[]

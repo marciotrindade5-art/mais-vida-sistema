@@ -14,8 +14,9 @@ const SPECIALTIES = [
 ];
 
 async function main() {
-  for (const s of SPECIALTIES) {
-    await db.specialty.upsert({ where: { name: s.name }, update: {}, create: s });
+  // Só no banco vazio: a clínica renomeia e cria as suas, e o seed roda a cada deploy.
+  if ((await db.specialty.count()) === 0) {
+    await db.specialty.createMany({ data: SPECIALTIES });
   }
 
   const email = (process.env.ADMIN_EMAIL ?? "admin@maisvida.local").toLowerCase();

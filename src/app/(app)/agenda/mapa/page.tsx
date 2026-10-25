@@ -3,10 +3,11 @@ import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { NAV_ACCESS } from "@/lib/roles";
 import { loadSchedule, scheduleUsage } from "@/lib/availability";
-import { addDays, formatDayShort, isDayKey, minutesToTime, mondayOf, todayKey } from "@/lib/time";
+import { addDays, formatDayShort, isDayKey, minutesToTime, mondayOf, todayKey, weekday } from "@/lib/time";
 import { unitsAndCurrent } from "@/lib/units";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { UnitTabs } from "@/components/unit-tabs";
+import { LinkPending } from "@/components/link-pending";
 
 function hours(min: number) {
   const h = Math.floor(min / 60);
@@ -26,7 +27,9 @@ export default async function MapaPage({ searchParams }: { searchParams: Promise
   await requireRole(...NAV_ACCESS["/agenda/mapa"]);
   const sp = await searchParams;
   const { units, current: unit } = await unitsAndCurrent(sp.unidade);
-  const monday = mondayOf(isDayKey(sp.semana) ? sp.semana : todayKey());
+  // No domingo, "esta semana" já é a que começa amanhã.
+  const today = todayKey();
+  const monday = mondayOf(isDayKey(sp.semana) ? sp.semana : weekday(today) === 0 ? addDays(today, 1) : today);
   const days = Array.from({ length: 6 }, (_, i) => addDays(monday, i));
 
   const specialties = await db.specialty.findMany({ where: { active: true }, orderBy: { name: "asc" } });
@@ -60,9 +63,9 @@ export default async function MapaPage({ searchParams }: { searchParams: Promise
         subtitle={`Semana de ${formatDayShort(monday)} a ${formatDayShort(days[5])}${unit ? ` · ${unit.name}` : ""}`}
         actions={
           <nav aria-label="Navegar entre semanas" className="flex items-center gap-1 rounded-xl bg-linha p-1">
-            <Link href={link({ semana: addDays(monday, -7) })} aria-label="Semana anterior" className="flex size-10 items-center justify-center rounded-lg hover:bg-white">‹</Link>
-            <Link href={link({ semana: undefined })} className="flex h-10 items-center rounded-lg px-3 hover:bg-white">Esta semana</Link>
-            <Link href={link({ semana: addDays(monday, 7) })} aria-label="Próxima semana" className="flex size-10 items-center justify-center rounded-lg hover:bg-white">›</Link>
+            <Link href={link({ semana: addDays(monday, -7) })} aria-label="Semana anterior" className="flex size-10 items-center justify-center rounded-lg hover:bg-white"><LinkPending>‹</LinkPending></Link>
+            <Link href={link({ semana: undefined })} className="flex h-10 items-center rounded-lg px-3 hover:bg-white"><LinkPending>Esta semana</LinkPending></Link>
+            <Link href={link({ semana: addDays(monday, 7) })} aria-label="Próxima semana" className="flex size-10 items-center justify-center rounded-lg hover:bg-white"><LinkPending>›</LinkPending></Link>
           </nav>
         }
       />
