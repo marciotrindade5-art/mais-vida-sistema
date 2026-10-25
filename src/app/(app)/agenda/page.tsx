@@ -4,18 +4,23 @@ import { db } from "@/lib/db";
 import { currentProfessionalId, requireRole } from "@/lib/auth";
 import { CAN_EDIT, NAV_ACCESS, hasRole } from "@/lib/roles";
 import { AGENDA_END_HOUR, AGENDA_START_HOUR } from "@/lib/clinic";
-import { addDays, dayRange, formatDayLong, formatTime, isDayKey, minutesOfDay, todayKey } from "@/lib/time";
+import { addDays, dayRange, formatDayLong, formatTime, isDayKey, minutesOfDay, minutesToTime, todayKey, weekday } from "@/lib/time";
 import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { UnitTabs } from "@/components/unit-tabs";
+import { LinkPending } from "@/components/link-pending";
 import { unitsAndCurrent } from "@/lib/units";
 
 const ROW_MINUTES = 5;
 const ROW_PX = 8;
 const ROWS = ((AGENDA_END_HOUR - AGENDA_START_HOUR) * 60) / ROW_MINUTES;
 
-function rowOf(date: Date) {
-  const m = minutesOfDay(date) - AGENDA_START_HOUR * 60;
+function minuteRow(minuteOfDay: number) {
+  const m = minuteOfDay - AGENDA_START_HOUR * 60;
   return Math.min(Math.max(Math.round(m / ROW_MINUTES), 0), ROWS) + 2; // linha 1 é o cabeçalho
+}
+
+function rowOf(date: Date) {
+  return minuteRow(minutesOfDay(date));
 }
 
 // Situação ao lado do nome; "confirmado" é o normal e não leva marca.
@@ -54,17 +59,29 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     ...(professionalFilter ? { professionalId: professionalFilter } : {}),
   };
 
-  const [appointments, rooms, specialties, professionals] = await Promise.all([
-    db.appointment.findMany({ where, include: { patient: true, professional: true, specialty: true }, orderBy: { startsAt: "asc" } }),
-    db.room.findMany({ where: { active: true, unitId }, orderBy: { name: "asc" } }),
+  const [appointments, schedules, specialties, professionals] = await Promise.all([
+    db.appointment.findMany({ where, include: { patient: true, professional: true, specialty: true, room: true }, orderBy: { startsAt: "asc" } }),
+    db.professionalSchedule.findMany({
+      where: {
+        weekday: weekday(day),
+        room: { unitId },
+        professional: { active: true, ...(sp.esp ? { specialtyId: sp.esp } : {}) },
+        ...(professionalFilter ? { professionalId: professionalFilter } : {}),
+      },
+      include: { room: true },
+      orderBy: { startMinute: "asc" },
+    }),
     db.specialty.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     session.role === "PROFISSIONAL" ? Promise.resolve([]) : db.professional.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 
-  // Salas desativadas que ainda têm sessões no dia continuam aparecendo.
-  const roomIds = new Set(rooms.map((r) => r.id));
-  const extraRoomIds = [...new Set(appointments.map((a) => a.roomId))].filter((id) => !roomIds.has(id));
-  const allRooms = extraRoomIds.length ? [...rooms, ...(await db.room.findMany({ where: { id: { in: extraRoomIds } } }))] : rooms;
+  // Uma coluna por profissional que atende no dia nesta unidade: pela grade de horários ou por ter sessão marcada.
+  const columnIds = new Set([...schedules.map((b) => b.professionalId), ...appointments.map((a) => a.professionalId)]);
+  const columns = columnIds.size
+    ? await db.professional.findMany({ where: { id: { in: [...columnIds] } }, include: { specialty: true }, orderBy: [{ specialty: { name: "asc" } }, { name: "asc" }] })
+    : [];
+  const blocksOf = (professionalId: string) => schedules.filter((b) => b.professionalId === professionalId);
+  const hasRooms = (await db.room.count({ where: { active: true, unitId } })) > 0;
 
   const count = (s: AppointmentStatus) => appointments.filter((a) => a.status === s).length;
   const summary = [
@@ -94,9 +111,9 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
         actions={
           <>
             <nav aria-label="Navegar entre dias" className="flex items-center gap-1 rounded-xl bg-linha p-1">
-              <Link href={link({ data: addDays(day, -1) })} aria-label="Dia anterior" className="flex size-10 items-center justify-center rounded-lg hover:bg-white">‹</Link>
-              <Link href={link({ data: todayKey() })} className="flex h-10 items-center rounded-lg px-3 hover:bg-white">Hoje</Link>
-              <Link href={link({ data: addDays(day, 1) })} aria-label="Próximo dia" className="flex size-10 items-center justify-center rounded-lg hover:bg-white">›</Link>
+              <Link href={link({ data: addDays(day, -1) })} aria-label="Dia anterior" className="flex size-10 items-center justify-center rounded-lg hover:bg-white"><LinkPending>‹</LinkPending></Link>
+              <Link href={link({ data: todayKey() })} className="flex h-10 items-center rounded-lg px-3 hover:bg-white"><LinkPending>Hoje</LinkPending></Link>
+              <Link href={link({ data: addDays(day, 1) })} aria-label="Próximo dia" className="flex size-10 items-center justify-center rounded-lg hover:bg-white"><LinkPending>›</LinkPending></Link>
             </nav>
             <form className="flex">
               <label htmlFor="data" className="sr-only">Ir para a data</label>
@@ -150,49 +167,74 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       </div>
 
       <Card className="p-4">
-        {allRooms.length === 0 ? (
+        {!hasRooms ? (
           <EmptyState>Cadastre as salas{unit ? ` da unidade ${unit.name}` : ""} para usar a agenda.</EmptyState>
+        ) : columns.length === 0 ? (
+          <EmptyState>
+            Nenhum profissional atende neste dia{sp.esp || sp.prof ? " com esses filtros" : ""}. Defina os dias de cada um em Profissionais → Horários.
+          </EmptyState>
         ) : (
           <div className="overflow-x-auto">
             <div
               className="grid gap-x-2"
               style={{
-                minWidth: 120 + allRooms.length * 170,
-                gridTemplateColumns: `56px repeat(${allRooms.length}, minmax(150px, 1fr))`,
-                gridTemplateRows: `44px repeat(${ROWS}, ${ROW_PX}px)`,
+                minWidth: 120 + columns.length * 170,
+                gridTemplateColumns: `56px repeat(${columns.length}, minmax(150px, 1fr))`,
+                gridTemplateRows: `56px repeat(${ROWS}, ${ROW_PX}px)`,
               }}
             >
-              {allRooms.map((r, i) => (
-                <div key={r.id} className="self-center truncate font-semibold text-verde" style={{ gridColumn: i + 2, gridRow: 1 }}>
-                  {r.name}
+              {columns.map((p, i) => (
+                <div key={p.id} className="flex min-w-0 flex-col justify-center" style={{ gridColumn: i + 2, gridRow: 1 }}>
+                  <span className="flex items-center gap-1.5 truncate font-semibold text-verde">
+                    <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: p.specialty.color }} />
+                    {p.name}
+                  </span>
+                  <span className="truncate text-[12px] text-suave">
+                    {blocksOf(p.id).map((b) => `${minutesToTime(b.startMinute)}–${minutesToTime(b.endMinute)} ${b.room.name}`).join(" · ") || p.specialty.name}
+                  </span>
                 </div>
               ))}
               {hours.map((h, i) => (
-                <div key={h} aria-hidden className="border-t border-linha" style={{ gridColumn: `1 / ${allRooms.length + 2}`, gridRow: 2 + i * 12 }} />
+                <div key={h} aria-hidden className="border-t border-linha" style={{ gridColumn: `1 / ${columns.length + 2}`, gridRow: 2 + i * 12 }} />
               ))}
               {hours.map((h, i) => (
                 <div key={`l${h}`} className="pt-1 text-[13px] text-suave" style={{ gridColumn: 1, gridRow: `${2 + i * 12} / span 12` }}>
                   {String(h).padStart(2, "0")}:00
                 </div>
               ))}
+              {columns.flatMap((p, pi) =>
+                blocksOf(p.id).map((b) => (
+                  // Faixa clara: horário em que o profissional atende (grade).
+                  <div
+                    key={b.id}
+                    aria-hidden
+                    className="rounded-md bg-[#f4f5ee]"
+                    style={{ gridColumn: pi + 2, gridRow: `${minuteRow(b.startMinute)} / ${minuteRow(b.endMinute)}` }}
+                  />
+                )),
+              )}
               {canEdit &&
-                allRooms.flatMap((r, ri) =>
+                columns.flatMap((p, pi) =>
                   hours.flatMap((h, hi) =>
-                    [0, 30].map((m) => (
-                      <Link
-                        key={`${r.id}-${h}-${m}`}
-                        href={`/agenda/novo?data=${day}&sala=${r.id}&hora=${String(h).padStart(2, "0")}:${m === 0 ? "00" : "30"}`}
-                        aria-hidden
-                        tabIndex={-1}
-                        className="rounded-md hover:bg-creme"
-                        style={{ gridColumn: ri + 2, gridRow: `${2 + hi * 12 + m / 5} / span 6` }}
-                      />
-                    )),
+                    [0, 30].map((m) => {
+                      const minute = h * 60 + m;
+                      const room = blocksOf(p.id).find((b) => b.startMinute <= minute && minute < b.endMinute)?.roomId;
+                      return (
+                        <Link
+                          key={`${p.id}-${h}-${m}`}
+                          href={`/agenda/novo?data=${day}&prof=${p.id}${room ? `&sala=${room}` : ""}&hora=${minutesToTime(minute)}`}
+                          aria-hidden
+                          tabIndex={-1}
+                          className="relative rounded-md hover:bg-creme"
+                          style={{ gridColumn: pi + 2, gridRow: `${2 + hi * 12 + m / 5} / span 6` }}
+                        />
+                      );
+                    }),
                   ),
                 )}
               {sessions.map((group) => {
                 const a = group[0];
-                const col = allRooms.findIndex((r) => r.id === a.roomId) + 2;
+                const col = columns.findIndex((p) => p.id === a.professionalId) + 2;
                 const rowStart = rowOf(a.startsAt);
                 const rowEnd = Math.max(rowOf(a.endsAt), rowStart + 4);
                 return (
@@ -208,7 +250,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                       {STATUS_SUFFIX[a.status] && <span className="font-medium"> · {STATUS_SUFFIX[a.status]}</span>}
                     </span>
                     <span className="truncate text-[13px]" style={{ color: `color-mix(in srgb, ${a.specialty.color} 70%, black)` }}>
-                      {formatTime(a.startsAt)}–{formatTime(a.endsAt)} · {a.professional.name}
+                      {formatTime(a.startsAt)}–{formatTime(a.endsAt)} · {a.room.name}
                     </span>
                   </Link>
                 );
@@ -217,7 +259,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           </div>
         )}
       </Card>
-      {appointments.length === 0 && allRooms.length > 0 && <p className="text-sm text-suave">Nenhuma sessão neste dia{sp.esp || sp.prof ? " com esses filtros" : ""}.</p>}
+      {appointments.length === 0 && columns.length > 0 && <p className="text-sm text-suave">Nenhuma sessão neste dia{sp.esp || sp.prof ? " com esses filtros" : ""}.</p>}
     </>
   );
 }

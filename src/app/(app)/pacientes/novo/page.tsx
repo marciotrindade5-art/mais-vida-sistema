@@ -6,11 +6,14 @@ import { PatientForm } from "../patient-form";
 
 export default async function NovoPacientePage() {
   await requireRole(...CAN_EDIT.pacientes);
-  const plans = await db.healthPlan.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } });
+  const [plans, specialties] = await Promise.all([
+    db.healthPlan.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.specialty.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ]);
   return (
     <>
       <PageHeader title="Novo paciente" subtitle="Pacientes" />
-      <Card className="max-w-3xl"><PatientForm plans={plans} /></Card>
+      <Card className="max-w-3xl"><PatientForm plans={plans} specialties={specialties} /></Card>
     </>
   );
 }

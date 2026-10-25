@@ -41,16 +41,18 @@ export async function savePatient(id: string | null, _prev: FormState, formData:
     guardianName: rest.guardianName ?? null,
     guardianPhone: rest.guardianPhone ?? null,
     healthPlanId: rest.healthPlanId ?? null,
-    // Particular não tem carteirinha.
-    cardNumber: rest.healthPlanId ? (rest.cardNumber ?? null) : null,
+    cardNumber: rest.cardNumber ?? null,
+    tea: formData.get("tea") === "sim",
     notes: rest.notes ?? null,
     birthDate: birthDate ? new Date(birthDate) : null,
     active: formData.get("active") === "on" || id === null,
   };
 
+  const specialties = formData.getAll("specialtyIds").map((v) => ({ id: String(v) }));
+
   try {
-    if (id) await db.patient.update({ where: { id }, data });
-    else await db.patient.create({ data });
+    if (id) await db.patient.update({ where: { id }, data: { ...data, specialties: { set: specialties } } });
+    else await db.patient.create({ data: { ...data, specialties: { connect: specialties } } });
   } catch (e) {
     if (isUniqueViolation(e)) return { fieldErrors: { cpf: "Já existe um paciente com este CPF." } };
     throw e;
